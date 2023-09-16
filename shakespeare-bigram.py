@@ -42,15 +42,15 @@ train_data = data[:break_point]
 val_data   = data[break_point:]
 
 
-batch_size = 4
-block_size = 8
+batch_size = 4  # Number of blocks to train at once (to keep GPU busy).
+block_size = 8  # Also called max context length.
 print(train_data[:block_size+1])
 
 def get_batch(split):
     data = train_data if split == 'train' else val_data
     ix = torch.randint(len(data) - block_size, (batch_size,))
     x = torch.stack([data[i  :i+block_size  ] for i in ix])
-    y = torch.stack([data[i+1:i+block_size+1] for i in ix])
+    y = torch.stack([data[i+1:i+block_size+1] for i in ix])  # Targets are the chars that follow the input.
     return x, y
 
 xb, yb = get_batch('train')
@@ -58,16 +58,25 @@ xb, yb = get_batch('train')
 class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size):
         super().__init__()
+        # Bigram is just a lookup table.  Given a char, it has a score
+        # for the next char.  So it's an N by N table.
         self.token_embedding_table = nn.Embedding(vocab_size, vocab_size)
 
     def forward(self, idx, targets=None):
+        # The log of counts is just the set of values for all other
+        # chars based on the current char (idx).
         logits = self.token_embedding_table(idx)
         if targets is None:
             loss = None
         else:
+            # Batch by Time by Chars tesor.  Need to flatten in order
+            # to compute all the cross_entropy at once.
             B, T, C = logits.shape
             logits  = logits.view(B*T, C)
             targets = targets.view(B*T)
+            # Reminder that cross_entropy is the negative log liklihood. It's
+            # a measure of how good the quality of the logits are compared
+            # to the targets.  Lower is better.
             loss = F.cross_entropy(logits, targets)
         return logits, loss
 
@@ -80,7 +89,7 @@ class BigramLanguageModel(nn.Module):
             logits = logits[:, -1, :]  # Becomes B, C
             # Apply softmax to get probabilities
             probs = F.softmax(logits, dim=1)  # B, C
-            # Sample from the dist
+            # Sample from the dist to get the next char
             idx_next = torch.multinomial(probs, num_samples=1) # B, 1
             # Append sampled index to the sequence
             idx = torch.cat((idx, idx_next), dim=1) # B, T+1
@@ -102,7 +111,7 @@ print('\n\n')
 optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
 batch_size = 32
 print("Training:")
-for step in range(8000):
+for step in range(10000):
     # Sample a batch of data
     xb, yb = get_batch('train')
     # Evaluate the loss.
