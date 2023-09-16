@@ -9,12 +9,6 @@ import torch.nn as nn
 from torch.nn import functional as F
 torch.manual_seed(1337)
 
-device = ('cuda' if torch.cuda.is_available()
-          else 'mps' if hasattr(torch.backends, 'mps') and torch.backends.mps.is_available()
-          else 'cpu')
-print(device)
-print(torch.backends)
-
 dataset='shakespeare_char'
 
 # Load the data file.
@@ -60,7 +54,6 @@ def get_batch(split):
     return x, y
 
 xb, yb = get_batch('train')
-print(xb)
 
 class BigramLanguageModel(nn.Module):
     def __init__(self, vocab_size):
@@ -75,11 +68,7 @@ class BigramLanguageModel(nn.Module):
             B, T, C = logits.shape
             logits  = logits.view(B*T, C)
             targets = targets.view(B*T)
-            # print("Going to make loss")
-            # print(f"logits 0 = {logits[0]}")
-            # print(f"targets 0 = {targets[0]}")
             loss = F.cross_entropy(logits, targets)
-            # print(logits.shape, targets.shape, loss.shape)
         return logits, loss
 
     def generate(self, idx, max_new_tokens):
@@ -98,42 +87,38 @@ class BigramLanguageModel(nn.Module):
         return idx
 
 
-m = BigramLanguageModel(vocab_size)
-logits, loss = m(xb, yb)
+model = BigramLanguageModel(vocab_size)
+logits, loss = model(xb, yb)
 print(logits.shape)
-print(f"Num params: {len(list(m.parameters()))}")
-print("Loss:")
-print(loss)
+print(f"Num params: {len(list(model.parameters()))}")
+print("Loss:", loss.item())
 
 start = torch.zeros((1, 1), dtype=torch.long)  # zero is the new line char.
-output = m.generate(start, max_new_tokens=100)[0].tolist()
-print("Untrained model predictions with the prompt of a newline char:")
+output = model.generate(start, max_new_tokens=100)[0].tolist()
+print("\n\nUntrained model predictions with the prompt of a newline char:")
 print(decode(output))
 print('\n\n')
 
-optimizer = torch.optim.AdamW(m.parameters(), lr=1e-3)
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-3)
 batch_size = 32
-for steps in range(8000):
+print("Training:")
+for step in range(8000):
     # Sample a batch of data
     xb, yb = get_batch('train')
     # Evaluate the loss.
-    logits, loss = m(xb, yb)
-    optimizer.zero_grad(set_to_none=True)
+    logits, loss = model(xb, yb)
 
     # Backward pass.
-    # for p in m.parameters():
-    #    p.grad = None
+    optimizer.zero_grad(set_to_none=True)
     loss.backward()
-    optimizer.step()
+    optimizer.step()  # Updates params.
+    if not step % 1000:
+        print(f"Step: {step:4d}: loss: {loss.item()}")
 
-    # Update params
-    #for p in m.parameters():
-    #    p.data += -0.01 * p.grad
+print(f"Final loss: {loss.item()}")
 
-print(loss)
-
-print("Trained model predictions with the prompt of a newline char:")
-output = m.generate(start, max_new_tokens=500)[0].tolist()
+print("\n\nTrained model predictions with the prompt of a newline char:")
+output = model.generate(start, max_new_tokens=500)[0].tolist()
 print(decode(output))
 print('\n\n')
 
