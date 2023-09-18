@@ -99,7 +99,7 @@ class BigramLanguageModel(nn.Module):
 model = BigramLanguageModel(vocab_size)
 logits, loss = model(xb, yb)
 print(logits.shape)
-print(f"Num params: {len(list(model.parameters()))}")
+print(f"Num params: {sum(p.nelement() for p in model.parameters()):,}")
 print("Loss:", loss.item())
 
 start = torch.zeros((1, 1), dtype=torch.long)  # zero is the new line char.

@@ -84,11 +84,13 @@ class Head(nn.Module):
         out = wei @ v  # (B, T, T) @ (B, T, C) --> (B, T, C)
         return out
 
-class BigramLanguageModel(nn.Module):
+class SimpleLanguageModel(nn.Module):
     def __init__(self, vocab_size, n_embed):
         super().__init__()
-        # Bigram is just a lookup table.  Given a char, it has a score
-        # for the next char.  So it's an N by N table.
+        # We are switching away from the Bigram lookup table.
+        # Now when given a char, we use a trained table to convert the
+        # char into an embedding vector.  In this example going from 65
+        # down to 32.  Resulting in a 32 dimensional embedding vector.
         self.token_embedding_table = nn.Embedding(vocab_size, n_embed)
         # We are going to add a self-attention head.
         self.sa_head = Head(n_embed)
@@ -144,10 +146,10 @@ class BigramLanguageModel(nn.Module):
         return idx
 
 
-model = BigramLanguageModel(vocab_size, n_embed)
+model = SimpleLanguageModel(vocab_size, n_embed)
 logits, loss = model(xb, yb)
 print(logits.shape)
-print(f"Num params: {len(list(model.parameters()))}")
+print(f"Num params: {sum(p.nelement() for p in model.parameters()):,}")
 print("Loss:", loss.item())
 
 start = torch.zeros((1, 1), dtype=torch.long)  # zero is the new line char.
